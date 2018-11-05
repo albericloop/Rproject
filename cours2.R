@@ -35,7 +35,12 @@ ui <- dashboardPage(
                   )
               )),
       tabItem(tabName = "singleUsers",
-              h2("single users "))
+              h2("single users "),
+              box(selectInput("var", 
+                              label = "Choose a type",
+                              choices = unique(data$User),
+                              selected = "Friend") 
+              ))
     )
     
     
