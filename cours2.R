@@ -13,10 +13,9 @@ library(rworldmap)
 
 preprocessing<-function(datalogs,datausers){
   
+  #newdate <- seq(as.Date(min(datalogs$Time)), as.Date(max(datalogs$Time)), by="days")
   
-  newdate <- seq(as.Date(min(datalogs$Time)), as.Date(max(datalogs$Time)), by="days")
-  
-  daylist<-data.frame(date=newdate)
+  daylist<-data.frame(date=c(0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23))
   daylist["Friend"]<-0
   daylist["Behaviour"]<-0
   daylist["Cheated"]<-0
@@ -24,44 +23,46 @@ preprocessing<-function(datalogs,datausers){
   daylist["Autoskipped"]<-0
   daylist["Skipped"]<-0
   daylist["Snoozed"]<-0
-  daylist["NbPers"]<-0
-  
-  # for(i in 1:dim(daylist)[1]) {
-  #   daylist$NbPers[i]<-count_if(le(daylist$date[i]), datausers$Started)
-  # }
-  
-  for(i in 1:dim(datalogs)[1]) {
-    date = datalogs$Time[i]
-    type = datalogs$Type[i]
-    type<-str_replace_all(string=type, pattern=" ", repl="")
-    
-    num<-which(daylist$date==date,arr.ind=TRUE)
-    switch(type, 
-           Behaviour={
-             daylist$Behaviour[num]<-daylist$Behaviour[num]+1
-           },
-           Friend={
-             daylist$Friend[num]<-daylist$Friend[num]+1  
-           },
-           Skipped={
-             daylist$Skipped[num]<-daylist$Skipped[num]+1
-           },
-           Autoskipped={
-             daylist$Autoskipped[num]<-daylist$Autoskipped[num]+1   
-           },
-           Ontime={
-             daylist$Ontime[num]<-daylist$Ontime[num]+1
-           },
-           Cheated={
-             daylist$Cheated[num]<-daylist$Cheated[num]+1   
-           },
-           Snoozed={
-             daylist$Snoozed[num]<-daylist$Snoozed[num]+1   
-           },
-           {
-           }
-    )
+  daylist["Total"]<-0
+  for(i in 1:dim(daylist)[1]) {
+    daylist$Total[i]<-count_if(daylist$date[i], datalogs$Time)
   }
+  
+  friend <- subset(datalogs, Type == "Friend", select=c(Time))
+  for(i in 1:dim(daylist)[1]) {
+    daylist$Friend[i]<-count_if(daylist$date[i], friend$Time)
+  }
+  
+  behaviour <- subset(datalogs, Type == "Behaviour", select=c(Time))
+  for(i in 1:dim(daylist)[1]) {
+    daylist$Behaviour[i]<-count_if(daylist$date[i], behaviour$Time)
+  }
+  
+  cheated <- subset(datalogs, Type == "Cheated", select=c(Time))
+  for(i in 1:dim(daylist)[1]) {
+    daylist$Cheated[i]<-count_if(daylist$date[i], cheated$Time)
+  }
+  
+  ontime <- subset(datalogs, Type == "On time", select=c(Time))
+  for(i in 1:dim(daylist)[1]) {
+    daylist$Ontime[i]<-count_if(daylist$date[i], ontime$Time)
+  }
+  
+  autoskipped <- subset(datalogs, Type == "Auto skipped", select=c(Time))
+  for(i in 1:dim(daylist)[1]) {
+    daylist$Autoskipped[i]<-count_if(daylist$date[i], autoskipped$Time)
+  }
+  
+  skipped <- subset(datalogs, Type == "Skipped", select=c(Time))
+  for(i in 1:dim(daylist)[1]) {
+    daylist$Skipped[i]<-count_if(daylist$date[i], skipped$Time)
+  }
+  
+  snoozed <- subset(datalogs, Type == "Snoozed", select=c(Time))
+  for(i in 1:dim(daylist)[1]) {
+    daylist$Snoozed[i]<-count_if(daylist$date[i], snoozed$Time)
+  }
+
   return(daylist)
 }
 
@@ -75,45 +76,55 @@ pdf1 <- joinCountryData2Map(dataCountries, joinCode="NAME", nameJoinColumn="Coun
 country_coord<-data.frame(coordinates(pdf1),stringsAsFactors=F)
 
 datalogs<-read.csv("datasets/logs.csv",sep = ";")
-#datausers<-read.xls("datasets/surveydataece.xlsx", perl = perl)
+datausers<-read.xls("datasets/surveydataece.xlsx")
+datalogs$Time <- strptime(as.character(datalogs$Time), "%d/%m/%Y %H:%M")
+datalogs$Hour <- hour(datalogs$Time)
+datalogs$Day <- weekdays(as.Date(datalogs$Time))
 
-datalogs$Time <- strptime(as.character(datalogs$Time), "%d/%m/%Y")
 #datausers$Started <- strptime(as.character(datausers$Started),format = "%d-%b")
 #year(datausers$Started)<-2017
 #daylist<-preprocessing(datalogs,datausers)
+# str(daylist$Friend)
+# daylist$Friend<-as.integer(daylist$Friend)
+# str(daylist$Friend)
 
-#don<-xts(x = daylist$Friend, order.by = daylist$date)
 varUser<- ""
 ui <- dashboardPage(
   dashboardHeader(),
   dashboardSidebar(sidebarMenu(
-    menuItem("Single users", tabName = "singleUsers"),
-    menuItem("all users", tabName = "allUsers"),
-    selectInput("var", 
-    label = "Choose a type",
-    choices = c("Friend", "Behaviour","Cheated","On time","Auto skipped","Skipped"),
-    selected = "Friend") 
+    menuItem("Single user", tabName = "singleUser"),
+    menuItem("all users", tabName = "allUsers")
     )),
   dashboardBody(
     tabItems(
       tabItem(tabName = "allUsers", 
+              h2("all users: "),
               fluidRow(
+                box(selectInput("varType", 
+                                label = "Choose a type",
+                                choices = c("Friend","Cheated","On time","Auto skipped","Skipped","Snoozed"),
+                                selected = "Friend"),
+                    selectInput("varTimeType", 
+                                label = "Choose a time",
+                                choices = c("Hour","Day"),
+                                selected = "Hour")
+                  ),
                 box( 
-                  #dygraph(don) %>%
-                   # dyOptions(labelsUTC = TRUE, fillGraph=TRUE, fillAlpha=0.1, drawGrid = FALSE, colors="#D8AE5A") %>%
-                    #dyRangeSelector() %>%
-                    #dyCrosshair(direction = "vertical") %>%
-                    #dyHighlight(highlightCircleSize = 5, highlightSeriesBackgroundAlpha = 0.2, hideOnMouseOut = FALSE)  %>%
-                    #dyRoller(rollPeriod = 1)
-                  
-                  )
-              )),
-      tabItem(tabName = "singleUsers",
-              h2("single users: "),
+                )
+              ),
+              fluidRow(
+                box(plotOutput("countByTime"))
+              ),
+              fluidRow(
+                
+              )
+              ),
+      tabItem(tabName = "singleUser",
+              h2("single user: "),
               h3(varUser),
               fluidRow(
                 box(selectInput("varUser", 
-                                label = "Choose a type",
+                                label = "Choose a user",
                                 choices = unique(datalogs$User),
                                 selected = "Friend") 
                 )),
@@ -132,9 +143,27 @@ server <- function(input, output) {
   
   #print(table(subset(datalogs, User == input$varUser)$Type))
   
+  output$countByTime <- renderPlot({
+
+    if( input$varTimeType=="Hour"){
+      data<-subset(datalogs, Type == input$varType)$Hour
+      text<-"Hour of the day"
+    }else{
+      DailyData<-subset(datalogs, Type == input$varType)
+      data <- factor(DailyData$Day,labels = c("Monday","Thursday","Wednesday","Tuesday","Friday","Saturday","Sunday"))
+      text<-"Day of the week"
+    }
+    barplot(table(data),ylab="number of smoking occurences",main=text, col=pickedColors)
+    })
+  
+  output$countByDay <- renderPlot({
+    data<-subset(datalogs, Type == input$varType)
+    fdata <- factor(data$Day,labels = c("Monday","Thursday","Wednesday","Tuesday","Friday","Saturday","Sunday"))
+    barplot(table(fdata),ylab="number of smoking occurences",main="Hour of the day", col=pickedColors)
+  })
+  
   output$countBy <- renderPlot({
     barplot(table(subset(datalogs, User == input$varUser)$Type),ylab="number of smoking occurences",main="occurence of smoking by type of smoking", col=pickedColors)
-    
   })
   output$pieType <- renderPlot({
     # Calculate the percentage for each day, rounded to one decimal place
@@ -151,7 +180,9 @@ server <- function(input, output) {
     text(x=country_coord$X1,y=country_coord$X2,labels=row.names(country_coord))
     
   })
-  
+  output$userTime <- renderPlot({
+    plot(daylist$date,daylist$Friend)
+  })
   
 } 
 
