@@ -75,8 +75,8 @@ ui <- dashboardPage(
                                 selected = "Friend") 
                 )),
               fluidRow(
-              box(plotOutput("countBy")),
-              box(plotOutput("pieType"))
+                box(plotOutput("countBy")),
+                box(plotOutput("pieType"))
               ),
               fluidRow(
                 h3("smoking localization"),
@@ -94,6 +94,7 @@ ui <- dashboardPage(
               ))
     )
   ))
+
 
 server <- function(input, output) {
   
