@@ -81,6 +81,16 @@ ui <- dashboardPage(
               fluidRow(
                 h3("smoking localization"),
                 box(plotOutput("userMap"))
+              ),
+              fluidRow(
+                h3("Progression"),
+                p("The progression is a ratio computed according to intital frequence of smoking (behavior) and giving bonuses to manual skips and maluses to cheat"),
+                box(selectInput("varProgPeriod", 
+                                label = "Choose a period type",
+                                choices = c("weeks","days"),
+                                selected = "weeks") 
+                ),
+                box(plotOutput("prog"))
               ))
     )
   ))
@@ -110,6 +120,53 @@ server <- function(input, output) {
   output$countBy <- renderPlot({
     barplot(table(subset(datalogs, User == input$varUser)$Type),ylab="number of smoking occurences",main="occurence of smoking by type of smoking", col=pickedColors)
   })
+  output$prog <- renderPlot({
+    
+    sub <- subset(datalogs, User == input$varUser)
+    sub <- sub[,c("Type","Time")]
+    
+    
+    regularWeekCount = as.numeric(table(sub$Type)["Behaviour"])
+    
+    sub$Type = as.numeric(sub$Type)
+    
+    sub$Type[sub$Type == 1] = 1
+    sub$Type[sub$Type == 2] = -1
+    sub$Type[sub$Type == 3] = -2
+    sub$Type[sub$Type == 4] = 0
+    sub$Type[sub$Type == 5] = -1
+    sub$Type[sub$Type == 6] = 1
+    sub$Type[sub$Type == 7] = 0
+    
+    
+    
+    sub$Date <- strftime(sub$Time,format="%d/%m/%Y %H:%M")
+    sub$Day <- strftime(sub$Time,format="%d/%m/%Y")
+    # week
+    sub$Week <- strftime(sub$Time,format="%W")
+    
+    print(sub)
+    
+    #progDay
+    if(input$varProgPeriod == "days"){
+      progDay <- aggregate(x=sub$Type, by=list(date = sub$Day), FUN=sum)
+      progDay$x <- 1 - (as.numeric(progDay$x))/(-regularWeekCount/7)
+      barplot(progDay$x,names.arg = factor(progDay$date))
+      
+    }
+    
+    
+    if(input$varProgPeriod == "weeks"){
+      #progWeek
+      progWeek <- aggregate(x=sub$Type, by=list(date = sub$Week), FUN=sum)
+      progWeek$x <- 1 - (as.numeric(progWeek$x))/(-regularWeekCount)
+      barplot(progWeek$x,names.arg = factor(progWeek$date))
+    }
+    
+    
+    
+  })
+  
   output$pieType <- renderPlot({
     # Calculate the percentage for each day, rounded to one decimal place
     slices_labels <- round(table(subset(datalogs, User == input$varUser)$Type)/sum(table(subset(datalogs, User == input$varUser)$Type)) * 100, 1)
