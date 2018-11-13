@@ -76,7 +76,7 @@ pdf1 <- joinCountryData2Map(dataCountries, joinCode="NAME", nameJoinColumn="Coun
 country_coord<-data.frame(coordinates(pdf1),stringsAsFactors=F)
 
 datalogs<-read.csv("datasets/logs.csv",sep = ";")
-datausers<-read.xls("datasets/surveydataece.xlsx")
+#datausers<-read.xls("datasets/surveydataece.xlsx")
 datalogs$Time <- strptime(as.character(datalogs$Time), "%d/%m/%Y %H:%M")
 datalogs$Hour <- hour(datalogs$Time)
 datalogs$Day <- weekdays(as.Date(datalogs$Time))
@@ -93,32 +93,32 @@ ui <- dashboardPage(
   dashboardHeader(),
   dashboardSidebar(sidebarMenu(
     menuItem("Single user", tabName = "singleUser"),
-    menuItem("all users", tabName = "allUsers")
+    menuItem("All users", tabName = "allUsers")
     )),
   dashboardBody(
     tabItems(
       tabItem(tabName = "allUsers", 
-              h2("all users: "),
-              fluidRow(
-                box(selectInput("varType", 
-                                label = "Choose a type",
-                                choices = c("Friend","Cheated","On time","Auto skipped","Skipped","Snoozed"),
-                                selected = "Friend"),
-                    selectInput("varTimeType", 
-                                label = "Choose a time",
-                                choices = c("Hour","Day"),
-                                selected = "Hour")
-                  ),
-                box( 
-                )
-              ),
-              fluidRow(
-                box(plotOutput("countByTime"))
-              ),
-              fluidRow(
-                
+              #h2("All users: "),
+             tabBox(
+                  # The id lets us use input$tabset1 on the server to find the current tab
+                id = "tabset1", height = "100%", width = "100%",
+                tabPanel("Smoking", "",
+                  fluidRow(
+                    box(selectInput("varType",
+                                    label = "Choose a type",
+                                    choices = c("Friend","Cheated","On time","Auto skipped","Skipped","Snoozed"),
+                                    selected = "Friend"),
+                        selectInput("varTimeType",
+                                    label = "Choose a time",
+                                    choices = c("Hour","Day"),
+                                    selected = "Hour")
+                    ),
+                    box(plotOutput("countByTime"))
+                  )
+                ),
+                tabPanel("Engagement", "")
               )
-              ),
+      ),
       tabItem(tabName = "singleUser",
               h2("single user: "),
               h3(varUser),
