@@ -209,7 +209,7 @@ server <- function(input, output) {
         }
       }
     }
-    plot(x=daylist$date, y=daylist$Score/daylist$nbUser, xlim=c(1,100),ylim=c(0,15),
+    plot(x=daylist$date, y=daylist$Score/daylist$nbUser, xlim=c(1,100),ylim=c(-15,0),
          col='black', type='l',
          main='Engagement following the number of days of testing', xlab='number of days', ylab='engagement')
   })
