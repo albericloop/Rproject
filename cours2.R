@@ -66,32 +66,41 @@ ui <- dashboardPage(
               )
       ),
       tabItem(tabName = "singleUser",
-              h2("single user: "),
-              h3(varUser),
               fluidRow(
-                box(selectInput("varUser", 
-                                label = "Choose a user",
-                                choices = unique(datalogs$User),
-                                selected = "Friend") 
-                )),
-              fluidRow(
-                box(plotOutput("countBy")),
-                box(plotOutput("pieType"))
-              ),
-              fluidRow(
-                h3("smoking localization"),
-                box(plotOutput("userMap"))
-              ),
-              fluidRow(
-                h3("Progression"),
-                p("The progression is a ratio computed according to intital frequence of smoking (behavior) and giving bonuses to manual skips and maluses to cheat"),
-                box(selectInput("varProgPeriod", 
-                                label = "Choose a period type",
-                                choices = c("weeks","days"),
-                                selected = "weeks") 
-                ),
-                box(plotOutput("prog"))
-              ))
+                tabBox(
+                  title = "single user",
+                  # The id lets us use input$tabset1 on the server to find the current tab
+                  id = "tabset1",
+                  tabPanel("old info",
+                    h2("single user: "),
+                    h3(varUser),
+                    fluidRow(
+                      box(selectInput("varUser", 
+                                      label = "Choose a user",
+                                      choices = unique(datalogs$User),
+                                      selected = "Friend") 
+                      )),
+                    fluidRow(
+                      box(plotOutput("countBy")),
+                      box(plotOutput("pieType"))
+                    ),
+                    fluidRow(
+                      h3("smoking localization"),
+                      box(plotOutput("userMap"))
+                    ),
+                    fluidRow(
+                      h3("Progression"),
+                      p("The progression is a ratio computed according to intital frequence of smoking (behavior) and giving bonuses to manual skips and maluses to cheat"),
+                      box(selectInput("varProgPeriod", 
+                                      label = "Choose a period type",
+                                      choices = c("weeks","days"),
+                                      selected = "weeks") 
+                      ),
+                      box(plotOutput("prog"))
+                    ))
+                )
+              )
+     )
     )
   ))
 
