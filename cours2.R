@@ -67,10 +67,20 @@ ui <- dashboardPage(
       ),
       tabItem(tabName = "singleUser",
               fluidRow(
+                box(selectInput("varUser2", 
+                                label = "Choose a user",
+                                choices = unique(dataSurvey$Name),
+                                selected = "Friend") 
+                )),
+              fluidRow(
                 tabBox(
                   title = "single user",
                   # The id lets us use input$tabset1 on the server to find the current tab
                   id = "tabset1",
+                  tabPanel("information",
+                           h2("age"),
+                           textOutput("ageCategory")
+                           ),
                   tabPanel("old info",
                     h2("single user: "),
                     h3(varUser),
@@ -175,6 +185,10 @@ server <- function(input, output) {
     
     
     
+  })
+  
+  output$ageCategory <- renderText({ 
+    "You have selected this"
   })
   
   output$pieType <- renderPlot({
