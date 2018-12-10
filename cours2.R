@@ -65,7 +65,7 @@ datalogs$Hour <- hour(datalogs$Time)
 datalogs$Day <- weekdays(as.Date(datalogs$Time))
 
 tabByUser <- makeTabByUser()
-
+print(tabByUser)
 cigPrice = 1
 
 varUser<- ""
@@ -254,15 +254,17 @@ server <- function(input, output) {
     slices_labels <- paste(slices_labels, "%", sep="")
     pie(table(subset(datalogs, User == input$varUser)$Type),labels = slices_labels, main="proportion of smoking types",col=pickedColors)
   })
+  
   output$userMap <- renderPlot({
     plot(newmap, xlim = c(35, 36), ylim = c(32, 35), asp = 1)
     points(subset(datalogs, User == input$varUser)$Longitude,subset(datalogs, User == input$varUser)$Latitude, col = "red", cex = .6)
     text(x=country_coord$X1,y=country_coord$X2,labels=row.names(country_coord))
-    
   })
+  
   output$userTime <- renderPlot({
     plot(daylist$date,daylist$Friend)
   })
+  
   output$userEngagement <- renderPlot({
     print("11")
     users<-unique(datalogs$User)
@@ -270,7 +272,6 @@ server <- function(input, output) {
     daylist["Score"]<-15
     daylist["nbUser"]<-0
     print("22")
-    
     for(i in 1:length(users)){
       data <- subset(datalogs, User == users[i])
       newdate <- seq(as.Date(min(data$Date)), as.Date(max(data$Date)), by="days")
@@ -293,8 +294,8 @@ server <- function(input, output) {
          col='black', type='l',
          main='Engagement following the number of days of testing', xlab='number of days', ylab='engagement')
   })
+  
   output$userEngagementHour <- renderPlot({
-
     users<-unique(datalogs$User)
     daylist<-data.frame(date=c(0:23))
     daylist["Score"]<-0
