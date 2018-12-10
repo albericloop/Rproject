@@ -56,6 +56,15 @@ pdf1 <- joinCountryData2Map(dataCountries, joinCode="NAME", nameJoinColumn="Coun
 country_coord<-data.frame(coordinates(pdf1),stringsAsFactors=F)
 
 datalogs<-read.csv("datasets/logs.csv", header=TRUE, sep = ";", encoding = "MacRoman")
+
+#replace with correct accents
+datalogs$User <- str_replace(datalogs$User,"ƒ","É")
+datalogs$User <- str_replace(datalogs$User,"Ž","é")
+datalogs$User <- str_replace(datalogs$User,"Ž","é")
+datalogs$User <- str_replace(datalogs$User,"‘","ë")
+datalogs$User <- str_replace(datalogs$User,"\u008f","è")
+
+
 #datausers<-read.xls("datasets/surveydataece.xlsx")
 datalogs$Date <- strptime(as.character(datalogs$Time), "%d/%m/%Y")
 
@@ -243,9 +252,29 @@ server <- function(input, output) {
     }
   })
   
-  output$ageCategory <- renderText({ 
-    dataSurvey[dataSurvey$Name == "Renaud Courbis","Age"]
-  })
+  userAge <- reactive(dataSurvey[dataSurvey$Name == input$varUser2,"Age"][[1]])
+  userAgeCategory <- reactive( if (userAge()<=30) "young" else if (userAge()<=50) "adult" else "old" )
+  # 
+  # userAge <- 
+  # userAgeCategory <- ""
+  # if(userAge <= 30){
+  #   
+  #     userAgeCategory <- "Young"
+  #   
+  # }
+  # else if(userAge <= 50){
+  #     
+  #     userAgeCategory <- "adult"
+  # }
+  # else{
+  #   
+  #   userAgeCategory <- "old"
+  #   
+  # }
+  
+  output$ageCategory <- renderText({ userAgeCategory() })
+  
+  
   
   output$pieType <- renderPlot({
     # Calculate the percentage for each day, rounded to one decimal place
