@@ -74,7 +74,7 @@ datalogs$Hour <- hour(datalogs$Time)
 datalogs$Day <- weekdays(as.Date(datalogs$Time))
 
 tabByUser <- makeTabByUser()
-print(tabByUser)
+#print(tabByUser)
 cigPrice = 1
 
 varUser<- ""
@@ -177,7 +177,6 @@ ui <- dashboardPage(
 
 
 server <- function(input, output) {
-  
   output$countByTime <- renderPlot({
     print("1")
     if( input$varTimeType=="Hour"){
@@ -206,12 +205,15 @@ server <- function(input, output) {
     fdata <- factor(data$Day,labels = c("Monday","Thursday","Wednesday","Tuesday","Friday","Saturday","Sunday"))
     barplot(table(fdata),ylab="number of smoking occurences",main="Hour of the day", col=pickedColors)
   })
+  
   output$countAllUsers <- renderPlot({
     barplot(table(datalogs$Type),ylab="number of smoking occurences",main="occurence of smoking by type of smoking", col=pickedColors)
   })
+  
   output$countBy <- renderPlot({
     barplot(table(subset(datalogs, User == input$varUser)$Type),ylab="number of smoking occurences",main="occurence of smoking by type of smoking", col=pickedColors)
   })
+  
   output$prog <- renderPlot({
     
     sub <- subset(datalogs, User == input$varUser)
@@ -230,8 +232,6 @@ server <- function(input, output) {
     sub$Type[sub$Type == 6] = 1
     sub$Type[sub$Type == 7] = 0
     
-    
-    
     sub$Date <- strftime(sub$Time,format="%d/%m/%Y %H:%M")
     sub$Day <- strftime(sub$Time,format="%d/%m/%Y")
     # week
@@ -241,6 +241,7 @@ server <- function(input, output) {
     if(input$varProgPeriod == "days"){
       progDay <- aggregate(x=sub$Type, by=list(date = sub$Day), FUN=sum)
       progDay$x <- 1 - (as.numeric(progDay$x))/(-regularWeekCount/7)
+      print(progDay)
       barplot(progDay$x,names.arg = factor(progDay$date))
     }
     
@@ -248,6 +249,7 @@ server <- function(input, output) {
       #progWeek
       progWeek <- aggregate(x=sub$Type, by=list(date = sub$Week), FUN=sum)
       progWeek$x <- 1 - (as.numeric(progWeek$x))/(-regularWeekCount)
+      print(progWeek)
       barplot(progWeek$x,names.arg = factor(progWeek$date))
     }
   })
@@ -343,28 +345,31 @@ server <- function(input, output) {
             daylist$nbUser[j] <- daylist$nbUser[cpt]+1
           }
       }
-    
     }
     plot(x=daylist$date, y=daylist$Score/daylist$nbUser, xlim=c(0,23),ylim=c(0,15),
          col='black', type='l',
          main='Engagement following the number of hours of the day of testing', xlab='Hour', ylab='engagement')
   })
+  
   output$totalCigSaved <-  renderText({
     total = as.integer(sum(tabByUser$savedCigarettes))
     totalString = toString(total)
     lastString = paste(totalString,"cigarettes saved ")
   })
+  
   output$avgCigSaved <-  renderText({
     totalCig = as.integer(sum(tabByUser$savedCigarettes))
     totalUsers = nrow(tabByUser)
     totalString = toString(as.integer(totalCig/totalUsers))
     lastString = paste(totalString,"cigarettes saved per user")
   })
+  
   output$totalMoneySaved <-  renderText({
     total = as.integer(sum(tabByUser$savedCigarettes)*cigPrice)
     totalString = toString(total)
     lastString = paste(totalString,"$ saved")
   })
+  
   output$avgMoneySaved <-  renderText({
     totalMoney = as.integer(sum(tabByUser$savedCigarettes)*cigPrice)
     totalUsers = nrow(tabByUser)
