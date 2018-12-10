@@ -113,12 +113,12 @@ ui <- dashboardPage(
               )
       ),
       tabItem(tabName = "singleUser",
-              fluidRow(
-                box(selectInput("varUser2", 
-                                label = "Choose a user",
-                                choices = unique(dataSurvey$Name),
-                                selected = "Friend") 
-                )),
+              #fluidRow(
+               # box(selectInput("varUser2", 
+                #                label = "Choose a user",
+               #                 choices = unique(dataSurvey$Name),
+               #                 selected = "Friend") 
+               # )),
               fluidRow(
                 tabBox(
                   title = "single user",
