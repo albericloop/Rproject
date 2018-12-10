@@ -188,7 +188,7 @@ server <- function(input, output) {
   })
   
   output$ageCategory <- renderText({ 
-    "You have selected this"
+    dataSurvey[dataSurvey$Name == "Renaud Courbis","Age"]
   })
   
   output$pieType <- renderPlot({
