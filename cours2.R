@@ -68,6 +68,10 @@ tabByUser <- makeTabByUser()
 cigPrice = 1
 
 varUser<- ""
+
+dataSurvey = read_excel("datasets/surveydataece.xlsx")
+
+
 ui <- dashboardPage(
   dashboardHeader(),
   dashboardSidebar(sidebarMenu(
@@ -113,12 +117,12 @@ ui <- dashboardPage(
               )
       ),
       tabItem(tabName = "singleUser",
-              #fluidRow(
-               # box(selectInput("varUser2", 
-                #                label = "Choose a user",
-               #                 choices = unique(dataSurvey$Name),
-               #                 selected = "Friend") 
-               # )),
+              fluidRow(
+              box(selectInput("varUser2",
+                             label = "Choose a user",
+                              choices = unique(dataSurvey$Name),
+                              selected = "Friend")
+              )),
               fluidRow(
                 tabBox(
                   title = "single user",
