@@ -9,6 +9,7 @@ library(stringr)
 library(gdata)
 library(expss)
 library(rworldmap)
+library(readxl)
 
 makeTabByUser<-function()
 {
