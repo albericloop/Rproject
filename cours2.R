@@ -10,6 +10,41 @@ library(gdata)
 library(expss)
 library(rworldmap)
 
+makeTabByUser<-function()
+{
+  users <- unique(datalogs$User)
+  nbUser <- length(users)
+  userlist <- data.frame(1:nbUser)
+  userlist["Name"] <- 0
+  userlist["BehaviourNumber"] <- 0
+  userlist["SmokedNumber"] <- 0
+  userlist["DaysNumber"] <- 0
+  userlist["savedCigarettes"] <- 0
+  for(i in 1:length(users)){
+    userlist$Name[i] = toString(users[i])
+    data <- subset(datalogs, User == users[i])
+    smokedBehaviour <- count_if("Behaviour", data$Type)
+    
+    smokedCheated <- count_if("Cheated", data$Type)
+    smokedOntime <- count_if("On time", data$Type)
+    
+    smokedCigarettes <- (smokedCheated+smokedOntime)
+    
+    datecount <- difftime(as.Date(max(data$Date)) ,as.Date(min(data$Date)) , units = c("days"))
+    #datecount <- as.Date(max(data$Date)) - as.Date(min(data$Date))
+    userlist$BehaviourNumber[i] <- smokedBehaviour
+    userlist$SmokedNumber[i] <- smokedCigarettes
+    userlist$DaysNumber[i] <- datecount-7
+    if(datecount > 7){
+      userlist$savedCigarettes[i] <- (smokedBehaviour/7)*(datecount-7) - (smokedCigarettes)
+    }else{
+      userlist$savedCigarettes[i] <- 0
+    }
+  }
+  return(userlist)
+}
+
+
 pickedColors = colors()[c(30,35,40,45,50,12,60)]
 newmap <- getMap(resolution = "low")
 dataCountries <- data.frame(Country=c('Russia','Cyprus', 'Belize', 'Austria' ,'Virgin Islands', 
@@ -19,7 +54,7 @@ pdf1 <- joinCountryData2Map(dataCountries, joinCode="NAME", nameJoinColumn="Coun
 # get the coordinates for each country
 country_coord<-data.frame(coordinates(pdf1),stringsAsFactors=F)
 
-datalogs<-read.csv("datasets/logs.csv",sep = ";")
+datalogs<-read.csv("datasets/logs.csv", header=TRUE, sep = ";", encoding = "MacRoman")
 #datausers<-read.xls("datasets/surveydataece.xlsx")
 datalogs$Date <- strptime(as.character(datalogs$Time), "%d/%m/%Y")
 
@@ -27,6 +62,10 @@ datalogs$Time <- strptime(as.character(datalogs$Time), "%d/%m/%Y %H:%M")
 
 datalogs$Hour <- hour(datalogs$Time)
 datalogs$Day <- weekdays(as.Date(datalogs$Time))
+
+tabByUser <- makeTabByUser()
+
+cigPrice = 1
 
 varUser<- ""
 ui <- dashboardPage(
@@ -42,18 +81,26 @@ ui <- dashboardPage(
              tabBox(
                   # The id lets us use input$tabset1 on the server to find the current tab
                 id = "tabset1", height = "100%", width = "100%",
-                tabPanel("Smoking", "",
+                tabPanel("Information", "",
+                         fluidRow(
+                           box(  verbatimTextOutput("totalCigSaved")),
+                           box(  verbatimTextOutput("avgCigSaved")),
+                           box(  verbatimTextOutput("totalMoneySaved")),
+                           box(  verbatimTextOutput("avgMoneySaved"))
+                         )    
+                ),
+                tabPanel("Classic", "",
                     box(plotOutput("countByTime")),
-                    box(plotOutput("countAllUsers")),
+                    #box(plotOutput("countAllUsers")),
                     fluidRow(
                       box(selectInput("varType",
                                       label = "Choose a type",
-                                      choices = c("Friend","Cheated","On time","Auto skipped","Skipped","Snoozed"),
+                                      choices = c("All","Friend","Cheated","On time","Auto skipped","Skipped","Snoozed"),
                                       selected = "Friend"),
                           selectInput("varTimeType",
                                       label = "Choose a time",
                                       choices = c("Hour","Day"),
-                                      selected = "Hour")
+                                      selected = "Day")
                       )
                     )
                 ),
@@ -66,12 +113,12 @@ ui <- dashboardPage(
               )
       ),
       tabItem(tabName = "singleUser",
-              fluidRow(
-                box(selectInput("varUser2", 
-                                label = "Choose a user",
-                                choices = unique(dataSurvey$Name),
-                                selected = "Friend") 
-                )),
+              #fluidRow(
+               # box(selectInput("varUser2", 
+                #                label = "Choose a user",
+               #                 choices = unique(dataSurvey$Name),
+               #                 selected = "Friend") 
+               # )),
               fluidRow(
                 tabBox(
                   title = "single user",
@@ -118,14 +165,25 @@ ui <- dashboardPage(
 server <- function(input, output) {
   
   output$countByTime <- renderPlot({
+    print("1")
     if( input$varTimeType=="Hour"){
-      data<-subset(datalogs, Type == input$varType)$Hour
+      if(input$varType == "All"){
+        data <- datalogs$Hour
+      }else{
+        data<-subset(datalogs, Type == input$varType)$Hour
+      }
       text<-"Hour of the day"
     }else{
-      DailyData<-subset(datalogs, Type == input$varType)
+      print("2")
+      if(input$varType == "All"){
+        DailyData<-datalogs
+      }else{
+        DailyData<-subset(datalogs, Type == input$varType)
+      }
       data <- factor(DailyData$Day,labels = c("Monday","Thursday","Wednesday","Tuesday","Friday","Saturday","Sunday"))
       text<-"Day of the week"
     }
+    print("3")
     barplot(table(data),ylab="number of smoking occurences",main=text, col=pickedColors)
   })
   
@@ -164,17 +222,13 @@ server <- function(input, output) {
     sub$Day <- strftime(sub$Time,format="%d/%m/%Y")
     # week
     sub$Week <- strftime(sub$Time,format="%W")
-    
-    print(sub)
-    
+  
     #progDay
     if(input$varProgPeriod == "days"){
       progDay <- aggregate(x=sub$Type, by=list(date = sub$Day), FUN=sum)
       progDay$x <- 1 - (as.numeric(progDay$x))/(-regularWeekCount/7)
       barplot(progDay$x,names.arg = factor(progDay$date))
-      
     }
-    
     
     if(input$varProgPeriod == "weeks"){
       #progWeek
@@ -182,9 +236,6 @@ server <- function(input, output) {
       progWeek$x <- 1 - (as.numeric(progWeek$x))/(-regularWeekCount)
       barplot(progWeek$x,names.arg = factor(progWeek$date))
     }
-    
-    
-    
   })
   
   output$ageCategory <- renderText({ 
@@ -194,11 +245,9 @@ server <- function(input, output) {
   output$pieType <- renderPlot({
     # Calculate the percentage for each day, rounded to one decimal place
     slices_labels <- round(table(subset(datalogs, User == input$varUser)$Type)/sum(table(subset(datalogs, User == input$varUser)$Type)) * 100, 1)
-    
     # Concatenate a '%' char after each value
     slices_labels <- paste(slices_labels, "%", sep="")
     pie(table(subset(datalogs, User == input$varUser)$Type),labels = slices_labels, main="proportion of smoking types",col=pickedColors)
-    
   })
   output$userMap <- renderPlot({
     plot(newmap, xlim = c(35, 36), ylim = c(32, 35), asp = 1)
@@ -210,10 +259,13 @@ server <- function(input, output) {
     plot(daylist$date,daylist$Friend)
   })
   output$userEngagement <- renderPlot({
+    print("11")
     users<-unique(datalogs$User)
     daylist<-data.frame(date=c(1:200))
     daylist["Score"]<-15
     daylist["nbUser"]<-0
+    print("22")
+    
     for(i in 1:length(users)){
       data <- subset(datalogs, User == users[i])
       newdate <- seq(as.Date(min(data$Date)), as.Date(max(data$Date)), by="days")
@@ -262,7 +314,28 @@ server <- function(input, output) {
          col='black', type='l',
          main='Engagement following the number of hours of the day of testing', xlab='Hour', ylab='engagement')
   })
-
+  output$totalCigSaved <-  renderText({
+    total = as.integer(sum(tabByUser$savedCigarettes))
+    totalString = toString(total)
+    lastString = paste(totalString,"cigarettes saved ")
+  })
+  output$avgCigSaved <-  renderText({
+    totalCig = as.integer(sum(tabByUser$savedCigarettes))
+    totalUsers = nrow(tabByUser)
+    totalString = toString(as.integer(totalCig/totalUsers))
+    lastString = paste(totalString,"cigarettes saved per user")
+  })
+  output$totalMoneySaved <-  renderText({
+    total = as.integer(sum(tabByUser$savedCigarettes)*cigPrice)
+    totalString = toString(total)
+    lastString = paste(totalString,"$ saved")
+  })
+  output$avgMoneySaved <-  renderText({
+    totalMoney = as.integer(sum(tabByUser$savedCigarettes)*cigPrice)
+    totalUsers = nrow(tabByUser)
+    totalString = toString(as.integer(totalMoney/totalUsers))
+    lastString = paste(totalString,"€ saved per user")
+  })
 } 
 
 shinyApp(ui = ui, server = server)
