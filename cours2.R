@@ -10,6 +10,7 @@ library(gdata)
 library(expss)
 library(rworldmap)
 library(readxl)
+library(dplyr)
 
 makeTabByUser<-function()
 {
@@ -88,6 +89,10 @@ datalogs$Hour <- hour(datalogs$Time)
 
 datalogs$Day <- weekdays(as.Date(datalogs$Time))
 
+datalogsSmoked <-
+  subset(datalogs, Type == "Behaviour" |
+           Type == "On time" | Type == "Cheated")
+
 tabByUser <- makeTabByUser()
 
 cigPrice = 1
@@ -157,14 +162,22 @@ ui <- dashboardPage(
                           # The id lets us use input$tabset1 on the server to find the current tab
                           id = "tabset2",
                           tabPanel("information",
-                                   h2("age"),
+                                   fluidRow(
+                                     h2("age"),
                                      textOutput("ageCategory"),
                                      textOutput("age"),
-                                   h2("Cigarettes saved"),
+                                     h2("Cigarettes saved"),
                                      textOutput("singleUserTotalCigSavedRender"),
                                      textOutput("singleUserTotalMoneySavedRender"),
-                                   h2("Overall Engagement"),
+                                     h2("Overall Engagement"),
                                      textOutput("singleUserOverallEngagement")
+                                   ),
+                                   fluidRow(box(
+                                     h2("Mean of consumed cigarettes in weekdays"),
+                                     plotOutput("meanConsumedWeekdays")
+                                   ))
+                                   
+                                   
                           ),
                           tabPanel("Classic",
                                   h2("single user: "),
@@ -242,6 +255,22 @@ server <- function(input, output) {
     }
     barplot(table(data),ylab="number of smoking occurences",main=text, col=pickedColors)
   })
+  
+  output$meanConsumedWeekdays <- renderPlot({
+    sub <- subset(datalogsSmoked, User == input$varUser)
+    sub$Type = as.numeric(sub$Type)
+    
+    subWeek <- sub %>%
+      select(Type, Day) %>%
+      count(Day)
+    
+    print(datalogsSmoked)
+    
+    barplot(subWeek$n,
+            names.arg = c("Lun", "Mar", "Mer" , "Jeu", "Ven", "Sam", "Dim"))
+  })
+  
+  
   
   output$countByDay <- renderPlot({
     data<-subset(datalogs, Type == input$varType)
