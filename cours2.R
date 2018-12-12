@@ -202,15 +202,38 @@ ui <- dashboardPage(
                                 )
                           ),
                           tabPanel("Week",
-                                   h2("Week")
+                                   h2("Week"),
+                                   fluidRow(
+                                     box(
+                                       h2("weeks comparison"),
+                                       plotOutput("comparisonWeeks")
+                                     )
+                                   ),
+                                   
+                                   fluidRow(
+                                     box(
+                                       selectInput("modes",
+                                                   label = "Choose a mode",
+                                                   choices = unique(datalogs$Type),
+                                                   selected = "On Time"),
+                                       plotOutput("modesPlot")
+                                     )
+                                   )
                           ),
                           tabPanel("Engagement",
                                    fluidRow(
                                      box(plotOutput("singleUserEngagement"))
-                                   ) 
+                                   )
                           ),
                           tabPanel("All days",
-                                   h2("All days")
+                                   h2("All days"),
+                                   fluidRow(
+                                     box(
+                                       h2("Cigarettes consumption over all period"),
+                                       plotOutput("daysCigarettesConsumption")
+                                      
+                                     )
+                                   )
                           )
                       )
               )
@@ -225,6 +248,52 @@ server <- function(input, output) {
     data <- subset(tabByUser, Name == input$varUser)$savedCigarettes
     totalString = toString(as.integer(data))
   }
+  
+  output$daysCigarettesConsumption <- renderPlot({
+    
+    sub <- subset(datalogsSmoked, User == input$varUser)
+    
+    smokedDays <- sub %>%
+      select(Type, Day) %>%
+      count(Day)
+    
+    plot(smokedDays)
+    
+    
+  })
+  
+  output$modesPlot <- renderPlot({
+    
+    sub <- subset(datalogsSmoked, User == input$varUser)
+    sub <- subset(sub, Type == input$modes)
+    sub$Week <- strftime(sub$Time, format = "%W")
+    
+    smokedWeeks <- sub %>%
+      select(Type, Week) %>%
+      count(Week)
+    
+    smokedWeeks$n <- smokedWeeks$n/7
+    
+    barplot(smokedWeeks$n,names.arg = smokedWeeks$Week)
+    
+  })
+  
+  output$comparisonWeeks <- renderPlot({
+    
+    sub <- subset(datalogsSmoked, User == input$varUser)
+    sub$Week <- strftime(sub$Time, format = "%W")
+    
+    smokedWeeks <- sub %>%
+      select(Type, Week) %>%
+      count(Week)
+    
+    smokedWeeks$n <- smokedWeeks$n/7
+    
+    barplot(smokedWeeks$n,names.arg = smokedWeeks$Week)
+    
+    
+    
+  })
   
   output$singleUserTotalCigSavedRender <- renderText({
     totalString = singleUserTotalCigSaved()
@@ -264,7 +333,6 @@ server <- function(input, output) {
       select(Type, Day) %>%
       count(Day)
     
-    print(datalogsSmoked)
     
     barplot(subWeek$n,
             names.arg = c("Lun", "Mar", "Mer" , "Jeu", "Ven", "Sam", "Dim"))
