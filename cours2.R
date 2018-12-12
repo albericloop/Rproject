@@ -232,6 +232,13 @@ ui <- dashboardPage(
                                        h2("Cigarettes consumption over all period"),
                                        plotOutput("daysCigarettesConsumption")
                                       
+                                     ),
+                                     box(
+                                       selectInput("mode2",
+                                                   label = "Choose a mode",
+                                                   choices = unique(datalogs$Type),
+                                                   selected = "On Time"),
+                                       plotOutput("daysCigarettesConsumptionModes")
                                      )
                                    )
                           )
@@ -253,11 +260,29 @@ server <- function(input, output) {
     
     sub <- subset(datalogsSmoked, User == input$varUser)
     
-    smokedDays <- sub %>%
-      select(Type, Day) %>%
-      count(Day)
+    sub$Date<-as.POSIXct(sub$Date)
     
-    plot(smokedDays)
+    smokedDays <- sub %>%
+      select(Type, Date) %>%
+      count(Date)
+    
+    plot(smokedDays$Date,smokedDays$n, type = "l")
+    
+    
+  })
+  
+  output$daysCigarettesConsumptionModes <- renderPlot({
+    
+    sub <- subset(datalogsSmoked, User == input$varUser)
+    sub <- subset(sub,Type == input$mode2)
+    
+    sub$Date<-as.POSIXct(sub$Date)
+    
+    smokedDays <- sub %>%
+      select(Type, Date) %>%
+      count(Date)
+    
+    plot(smokedDays$Date,smokedDays$n, type = "l")
     
     
   })
