@@ -11,6 +11,7 @@ library(expss)
 library(rworldmap)
 library(readxl)
 library(dplyr)
+library(schoolmath)
 
 makeTabByUser<-function()
 {
@@ -89,9 +90,22 @@ datalogs$Hour <- hour(datalogs$Time)
 
 datalogs$Day <- weekdays(as.Date(datalogs$Time))
 
-datalogsSmoked <-
-  subset(datalogs, Type == "Behaviour" |
-           Type == "On time" | Type == "Cheated")
+behav <- datalogs
+other <- behav[behav$Type == "Behaviour", c("User","Time")]
+other <- other[!duplicated(other[,"User"]),]
+
+behav <- merge(x=behav, y=other, by="User", all = TRUE)
+
+behav$nbWeek <- time_length(interval(start = behav$Time.y, end = behav$Time.x), unit = "weeks") 
+behav$nbWeek <- floor(behav$nbWeek)
+
+
+behav <- plyr::rename(behav,c("Time.x"="Time"))
+behav <- select(behav,"User","Time","nbWeek")
+
+datalogs <- merge(x=datalogs,y=behav, by=c("User","Time"))
+
+datalogsSmoked <- subset(datalogs, Type == "Behaviour" |Type == "On time" | Type == "Cheated")
 
 tabByUser <- makeTabByUser()
 
@@ -126,24 +140,15 @@ ui <- dashboardPage(
                          )    
                 ),
                 tabPanel("Classic", "",
-                    box(plotOutput("countByTime")),
-                    #box(plotOutput("countAllUsers")),
                     fluidRow(
-                      box(selectInput("varType",
-                                      label = "Choose a type",
-                                      choices = c("All","Friend","Cheated","On time","Auto skipped","Skipped","Snoozed"),
-                                      selected = "Friend"),
-                          selectInput("varTimeType",
-                                      label = "Choose a time",
-                                      choices = c("Hour","Day"),
-                                      selected = "Day")
-                      )
+                      box(plotOutput("countByTime")),
+                      box(plotOutput("allUserCigConsumption"))
                     )
                 ),
                 tabPanel("Engagement", "",
                  fluidRow(
                    box(plotOutput("userEngagement"))
-                 )    
+                 )
                  )
               )
       ),
@@ -162,32 +167,21 @@ ui <- dashboardPage(
                           id = "tabset2",
                           tabPanel("information",
                                    fluidRow(
-                                     h2("age"),
-                                     textOutput("ageCategory"),
-                                     textOutput("age"),
-                                     h2("Cigarettes saved"),
-                                     textOutput("singleUserTotalCigSavedRender"),
-                                     textOutput("singleUserTotalMoneySavedRender"),
-                                     h2("Overall Engagement"),
-                                     textOutput("singleUserOverallEngagement")
-                                   ),
-                                   fluidRow(box(
-                                     h2("Mean of consumed cigarettes in weekdays"),
-                                     plotOutput("meanConsumedWeekdays")
-                                   ))
-                                   
-                                   
+                                     valueBoxOutput("meanConsumedWeekdays"),
+                                     valueBoxOutput("meanConsumedWeekenddays"),
+                                     valueBoxOutput("singleUserOverallEngagement"),
+                                     valueBoxOutput("singleUserTotalCigSavedRender"),
+                                     valueBoxOutput("singleUserTotalMoneySavedRender"),
+                                     valueBoxOutput("ageCategory"),
+                                     valueBoxOutput("age"),
+                                     valueBoxOutput("meanConsumed")
+                                   )
                           ),
                           tabPanel("Classic",
-                                  h2("single user: "),
                                   h3(varUser),
                                   fluidRow(
                                     box(plotOutput("countBy")),
                                     box(plotOutput("pieType"))
-                                  ),
-                                  fluidRow(
-                                    h3("smoking localization"),
-                                    box(plotOutput("userMap"))
                                   ),
                                   fluidRow(
                                     h3("Progression"),
@@ -195,29 +189,25 @@ ui <- dashboardPage(
                                     box(selectInput("varProgPeriod", 
                                         label = "Choose a period type",
                                         choices = c("weeks","days"),
-                                        selected = "weeks") 
+                                        selected = "weeks"),
+                                    plotOutput("prog")
                                     ),
-                                    box(plotOutput("prog"))
+                                    box(
+                                      h3("Cigarettes consumption in last seven days"),
+                                      plotOutput("lastSeven")
+                                    )
                                 ),
                                 fluidRow(
-                                  box(
-                                    h3("Cigarettes consumption in last seven days"),
-                                    plotOutput("lastSeven")
-                                  )
-                                  
-                                  
+                                  h3("smoking localization"),
+                                  box(plotOutput("userMap"))
                                 )
                           ),
                           tabPanel("Week",
-                                   h2("Week"),
                                    fluidRow(
                                      box(
                                        h2("weeks comparison"),
                                        plotOutput("comparisonWeeks")
-                                     )
-                                   ),
-                                   
-                                   fluidRow(
+                                     ),
                                      box(
                                        selectInput("modes",
                                                    label = "Choose a mode",
@@ -233,7 +223,6 @@ ui <- dashboardPage(
                                    )
                           ),
                           tabPanel("All days",
-                                   h2("All days"),
                                    fluidRow(
                                      box(
                                        h2("Cigarettes consumption over all period"),
@@ -263,6 +252,16 @@ server <- function(input, output) {
     totalString = toString(as.integer(data))
   }
   
+  output$allUserCigConsumption <- renderPlot({
+    cigConsumption <- datalogsSmoked[c("nbWeek","Day","Type")]
+    cigConsumption <- data.frame(table(cigConsumption))
+    cigConsumption <- cigConsumption[cigConsumption$Freq!=0,c("nbWeek","Day","Freq")]
+    cigConsumption$Day <- factor(cigConsumption$Day, levels = c("Monday","Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"))
+    cigConsumption <- cigConsumption[order(cigConsumption$Day), ]
+    ggplot(cigConsumption, aes(x=Day, y=Freq, fill=Day)) + geom_boxplot() + ggtitle("Mean and std of cigarette consumption per weekday ")
+  })
+    
+    
   output$lastSeven <- renderPlot({
     
     sub <- subset(datalogsSmoked, User == input$varUser)
@@ -273,10 +272,7 @@ server <- function(input, output) {
     smokedDays <- sub %>%
       select(Type, Date) %>%
       count(Date)
-    
     barplot(smokedDays$n,names.arg = smokedDays$Date)
-    
-  
   })
   
   output$daysCigarettesConsumption <- renderPlot({
@@ -290,8 +286,6 @@ server <- function(input, output) {
       count(Date)
     
     plot(smokedDays$Date,smokedDays$n, type = "l")
-    
-    
   })
   
   output$daysCigarettesConsumptionModes <- renderPlot({
@@ -307,7 +301,7 @@ server <- function(input, output) {
   
   output$modesPlot <- renderPlot({
     
-    sub <- subset(datalogsSmoked, User == "JosZ Girault")
+    sub <- subset(datalogsSmoked, User == input$varUser)
     sub <- subset(sub, Type == input$modes)
     sub$Week <- strftime(sub$Time, format = "%W")
     
@@ -315,62 +309,100 @@ server <- function(input, output) {
       select(Type, Week) %>%
       count(Week)
     
-    smokedWeeks$n <- smokedWeeks$n/7
-    
+    smokedWeeks$n <- smokedWeeks$n / 7
     barplot(smokedWeeks$n,names.arg = smokedWeeks$Week)
     
   })
   
   output$comparisonWeeks <- renderPlot({
-    
     sub <- subset(datalogsSmoked, User == input$varUser)
     sub$Week <- strftime(sub$Time, format = "%W")
-    
     smokedWeeks <- sub %>%
       select(Type, Week) %>%
       count(Week)
-    
     smokedWeeks$n <- smokedWeeks$n/7
-    
     barplot(smokedWeeks$n,names.arg = smokedWeeks$Week)
-    
-    
-    
   })
   
-  output$singleUserTotalCigSavedRender <- renderText({
+  output$singleUserTotalCigSavedRender <- renderValueBox({
     totalString = singleUserTotalCigSaved()
     lastString = paste(totalString,"cigarettes saved ")
+    valueBox(
+      paste0(lastString),
+      paste("Cigarettes saved")
+    )
   })
   
-  output$singleUserTotalMoneySavedRender <- renderText({
+  output$singleUserTotalMoneySavedRender <- renderValueBox({
     totalString = singleUserTotalCigSaved()
     lastString = paste(totalString,"$ saved ")
+    valueBox(
+      paste0(lastString),
+      paste("Money saved")
+    )
   })
 
   output$countByTime <- renderPlot({
-    cigCompsuption <- datalogs[c("Day","Type","Hour")]
+    cigCompsuption <- datalogsSmoked[c("Day","Type","Hour")]
     timeslots <- c(0,2,4,6,8,10,12,14,16,18,20,22,24)
     days = c("Monday","Thursday","Wednesday","Tuesday","Friday","Saturday","Sunday")
     cigCompsuption$Hour <- cut(as.numeric(cigCompsuption$Hour), breaks = timeslots, right = FALSE)
-    cigCompsuption <- cigCompsuption[cigCompsuption$Type %in% c("Cheated","On time"),c("Hour","Day")]
     cigCompsuption <- data.frame(table(cigCompsuption))
     cigCompsuption <- aggregate(list(Freq=cigCompsuption$Freq),by = list(Hour=cigCompsuption$Hour,Day=cigCompsuption$Day), sum)
     cigCompsuption$Day <- factor(cigCompsuption$Day,labels = days)
-    ggplot(data = cigCompsuption, title = "test", aes( x = Day, y = Freq , fill=Hour) )+geom_bar( stat = 'identity',position = 'dodge')
+    cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+    ggplot(data = cigCompsuption, title = "test", aes( x = Day, y = Freq , fill=Hour))+geom_bar( stat = 'identity',position = 'dodge')+ scale_fill_manual(values=cbbPalette)+ ggtitle("Cigarettes per weekday per time slots")
   })
   
-  output$meanConsumedWeekdays <- renderPlot({
-    sub <- subset(datalogsSmoked, User == input$varUser)
-    sub$Type = as.numeric(sub$Type)
+  output$meanConsumedWeekdays <- renderValueBox({
+    sub1 <- subset(datalogsSmoked, Day %in% c("Monday","Thursday","Wednesday","Tuesday","Friday"))
+    sub2 <- subset(sub1, User == input$varUser)
+    nb = nrow(sub2)
+    if(nb != 0){
+      nbWeekDays = sum(!weekdays(seq(min(sub2$Date), max(sub2$Date), "days")) %in% c("Saturday", "Sunday"))
+      avg = nb/nbWeekDays
+      avg = lapply(avg, round, 2)
+    }else{
+      avg = "not enough data"
+    }
+    valueBox(
+      paste0(avg),
+      paste("Mean of consumed cigarettes in weekdays")
+    )
+  })
+  
+  output$meanConsumedWeekenddays <- renderValueBox({
     
-    subWeek <- sub %>%
-      select(Type, Day) %>%
-      count(Day)
-    
-    
-    barplot(subWeek$n,
-            names.arg = c("Lun", "Mar", "Mer" , "Jeu", "Ven", "Sam", "Dim"))
+    sub1 <- subset(datalogsSmoked, Day %in% c("Saturday","Sunday"))
+    sub2 <- subset(sub1, User == input$varUser)
+    nb = nrow(sub2)
+    if(nb != 0){
+      nbWeekendDays = sum(weekdays(seq(min(sub2$Date), max(sub2$Date), "days")) %in% c("Saturday", "Sunday"))
+      avg = nb/nbWeekendDays
+      avg = lapply(avg, round, 2)
+    }else{
+      avg = "not enough data"
+    }
+    valueBox(
+      paste0(avg),
+      paste("Mean of consumed cigarettes in week ends days")
+    )
+  })
+  
+  output$meanConsumed <- renderValueBox({
+    sub2 <- subset(datalogsSmoked, User == input$varUser)
+    nb = nrow(sub2)
+    if(nb != 0){
+      nbDays = length(seq(min(sub2$Date), max(sub2$Date), "days"))
+      avg = nb/nbDays
+      avg = lapply(avg, round, 2)
+    }else{
+      avg = "not enough data"
+    }
+    valueBox(
+      paste0(avg),
+      paste("Mean of consumed cigarettes")
+    )
   })
   
   output$countByDay <- renderPlot({
@@ -434,38 +466,29 @@ server <- function(input, output) {
   )
   
   userAgeCategory <- reactive( if (userAge()<=30) "young" else if (userAge()<=50) "adult" else "old" )
-  # 
-  # userAge <- 
-  # userAgeCategory <- ""
-  # if(userAge <= 30){
-  #   
-  #     userAgeCategory <- "Young"
-  #   
-  # }
-  # else if(userAge <= 50){
-  #     
-  #     userAgeCategory <- "adult"
-  # }
-  # else{
-  #   
-  #   userAgeCategory <- "old"
-  #   
-  # }
   
-  output$ageCategory <- renderText({ 
+  output$ageCategory <- renderValueBox({ 
     if(userAge() == "undefined"){
-      "undefined"
+      val = "undefined"
     }else if (userAge()<=30){
-      "young" 
+      val = "young" 
     }else if (userAge()<=50){
-      "adult" 
+      val = "adult" 
     }else{
-      "old" 
+      val = "old" 
     }
+    valueBox(
+      paste0(val),
+      paste("Age category")
+    )
   })
   
-  output$age <- renderText({ 
-    userAge()
+  output$age <- renderValueBox({ 
+    val = userAge()
+    valueBox(
+      paste0(val),
+      paste("Age")
+    )
   })
   
   output$pieType <- renderPlot({
@@ -519,7 +542,7 @@ server <- function(input, output) {
          col='black', type='l',
          main='Engagement following the number of days of testing', xlab='number of days', ylab='engagement')
   })
-  
+
   output$userEngagement <- renderPlot({
     users<-unique(datalogs$User)
     daylist<-data.frame(date=c(1:200))
@@ -548,64 +571,54 @@ server <- function(input, output) {
          main='Engagement following the number of days of testing', xlab='number of days', ylab='engagement')
   })
   
-  "output$userEngagementHour <- renderPlot({
-    users<-unique(datalogs$User)
-    daylist<-data.frame(date=c(0:23))
-    daylist['Score']<-0
-    daylist['nbUser']<-0
-    for(i in 1:length(users)){
-      data <- subset(datalogs, User == users[i])
-      cpt <- 0
-      for(j in 0:23){
-        subless <- subset(data, Hour == j)
-        cntless<-count_if('Auto skipped', subless$Type)
-        cnt<- nrow(subless)
-          res <-cntless
-          cpt <- cpt+1
-          daylist$Score[j] <- daylist$Score[cpt]+res
-          if(cnt!=0){
-            daylist$nbUser[j] <- daylist$nbUser[cpt]+1
-          }
-      }
-    }
-    plot(x=daylist$date, y=daylist$Score/daylist$nbUser, xlim=c(0,23),ylim=c(0,15),
-         col='black', type='l',
-         main='Engagement following the number of hours of the day of testing', xlab='Hour', ylab='engagement')
-  })"
-  
   OverallEngagement <- function(){
     data = subset(datalogs, User == input$varUser)
-    datelist <- seq(as.Date(min(data$Date)), as.Date(max(data$Date)), by="days")
-    lengthdate = length(seq(as.Date(min(data$Date)), as.Date(max(data$Date)), by="days"))
-    if(lengthdate >7){
-      engagementList<-data.frame(date=c(-6:lengthdate-7))
-      engagementList["Engagement"]<-0
-      engagementList["AutoSkip"]<-0
-      engagementList["Smoked"]<-0
-      for(j in 1:length(datelist)){
-        subless <- subset(data, Date == datelist[j])
-        cntAutoSkip = count_if("Auto skipped", subless$Type)
-        if(cntAutoSkip != 0){
-          smoked = count_if("Skipped", subless$Type) + count_if("Snoozed", subless$Type) + count_if("On time", subless$Type)
-          engagement = 1 - (cntAutoSkip/(cntAutoSkip + smoked))
-          engagementList$Engagement[j] = engagement
-          engagementList$AutoSkip[j] = cntAutoSkip
-          engagementList$Smoked[j] = smoked
-        }else{
-          engagementList$Engagement[j] = 0
-          engagementList$AutoSkip[j] = 0
-          engagementList$Smoked[j] = 0
+    if(nrow(data) > 0){
+      datelist <- seq(as.Date(min(data$Date)), as.Date(max(data$Date)), by="days")
+      lengthdate = length(seq(as.Date(min(data$Date)), as.Date(max(data$Date)), by="days"))
+      if(lengthdate >7){
+        engagementList<-data.frame(date=c(-6:lengthdate-7))
+        engagementList["Engagement"]<-0
+        engagementList["AutoSkip"]<-0
+        engagementList["Smoked"]<-0
+        for(j in 1:length(datelist)){
+          subless <- subset(data, Date == datelist[j])
+          cntAutoSkip = count_if("Auto skipped", subless$Type)
+          if(cntAutoSkip != 0){
+            smoked = count_if("Skipped", subless$Type) + count_if("Snoozed", subless$Type) + count_if("On time", subless$Type)
+            engagement = 1 - (cntAutoSkip/(cntAutoSkip + smoked))
+            engagementList$Engagement[j] = engagement
+            engagementList$AutoSkip[j] = cntAutoSkip
+            engagementList$Smoked[j] = smoked
+          }else{
+            engagementList$Engagement[j] = 0
+            engagementList$AutoSkip[j] = 0
+            engagementList$Smoked[j] = 0
+          }
         }
+        #engagementList
+        Overall = sum(engagementList$Engagement)/lengthdate
+      }else{
+         Overall = -1
       }
-      #engagementList
-      Overall = toString(sum(engagementList$Engagement)/lengthdate)
     }else{
--      Overall = "Not enough data"
+           Overall = -1
     }
   }
   
-  output$singleUserOverallEngagement <- renderText({
-    OverallEngagement()
+  output$singleUserOverallEngagement <- renderValueBox({
+    val = OverallEngagement()
+    if(val != -1){
+      if(is.decimal(val)){
+        val = lapply(val, round, 2)
+      }
+    }else{
+      val = "not enough data"
+    }
+    valueBox(
+      paste0(val),
+      paste("Overall Engagement")
+    )
   })
   
   
