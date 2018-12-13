@@ -142,8 +142,7 @@ ui <- dashboardPage(
                 ),
                 tabPanel("Engagement", "",
                  fluidRow(
-                   box(plotOutput("userEngagement")),
-                   box(plotOutput("userEngagementHour"))
+                   box(plotOutput("userEngagement"))
                  )    
                  )
               )
@@ -272,19 +271,14 @@ server <- function(input, output) {
   })
   
   output$daysCigarettesConsumptionModes <- renderPlot({
-    
     sub <- subset(datalogsSmoked, User == input$varUser)
     sub <- subset(sub,Type == input$mode2)
     
     sub$Date<-as.POSIXct(sub$Date)
-    
     smokedDays <- sub %>%
       select(Type, Date) %>%
       count(Date)
-    
     plot(smokedDays$Date,smokedDays$n, type = "l")
-    
-    
   })
   
   output$modesPlot <- renderPlot({
@@ -329,25 +323,17 @@ server <- function(input, output) {
     totalString = singleUserTotalCigSaved()
     lastString = paste(totalString,"$ saved ")
   })
-  
+
   output$countByTime <- renderPlot({
-    if( input$varTimeType=="Hour"){
-      if(input$varType == "All"){
-        data <- datalogs$Hour
-      }else{
-        data<-subset(datalogs, Type == input$varType)$Hour
-      }
-      text<-"Hour of the day"
-    }else{
-      if(input$varType == "All"){
-        DailyData<-datalogs
-      }else{
-        DailyData<-subset(datalogs, Type == input$varType)
-      }
-      data <- factor(DailyData$Day,labels = c("Monday","Thursday","Wednesday","Tuesday","Friday","Saturday","Sunday"))
-      text<-"Day of the week"
-    }
-    barplot(table(data),ylab="number of smoking occurences",main=text, col=pickedColors)
+    cigCompsuption <- datalogs[c("Day","Type","Hour")]
+    timeslots <- c(0,2,4,6,8,10,12,14,16,18,20,22,24)
+    days = c("Monday","Thursday","Wednesday","Tuesday","Friday","Saturday","Sunday")
+    cigCompsuption$Hour <- cut(as.numeric(cigCompsuption$Hour), breaks = timeslots, right = FALSE)
+    cigCompsuption <- cigCompsuption[cigCompsuption$Type %in% c("Cheated","On time"),c("Hour","Day")]
+    cigCompsuption <- data.frame(table(cigCompsuption))
+    cigCompsuption <- aggregate(list(Freq=cigCompsuption$Freq),by = list(Hour=cigCompsuption$Hour,Day=cigCompsuption$Day), sum)
+    cigCompsuption$Day <- factor(cigCompsuption$Day,labels = days)
+    ggplot(data = cigCompsuption, title = "test", aes( x = Day, y = Freq , fill=Hour) )+geom_bar( stat = 'identity',position = 'dodge')
   })
   
   output$meanConsumedWeekdays <- renderPlot({
@@ -362,8 +348,6 @@ server <- function(input, output) {
     barplot(subWeek$n,
             names.arg = c("Lun", "Mar", "Mer" , "Jeu", "Ven", "Sam", "Dim"))
   })
-  
-  
   
   output$countByDay <- renderPlot({
     data<-subset(datalogs, Type == input$varType)
@@ -478,6 +462,40 @@ server <- function(input, output) {
     plot(daylist$date,daylist$Friend)
   })
   
+  output$cigConsumption <- renderPlot({
+    
+    data<-subset(datalogs, Type == input$varType)
+    fdata <- factor(data$Day,labels = c("Monday","Thursday","Wednesday","Tuesday","Friday","Saturday","Sunday"))
+    
+    barplot(table(fdata),ylab="number of smoking occurences",main="Hour of the day", col=pickedColors)
+    
+    users<-unique(datalogs$User)
+    daylist<-data.frame(date=c(1:200))
+    daylist["Score"]<-15
+    daylist["nbUser"]<-0
+    for(i in 1:length(users)){
+      data <- subset(datalogs, User == users[i])
+      newdate <- seq(as.Date(min(data$Date)), as.Date(max(data$Date)), by="days")
+      cpt <- 0
+      for(j in 1:length(newdate)){
+        subless <- subset(data, Date == newdate[j])
+        cntless<-count_if("Auto skipped", subless$Type)
+        cnt<- nrow(subless)
+        if(j>7){
+          res <-cntless
+          cpt <- cpt+1
+          daylist$Score[cpt] <- daylist$Score[cpt]-res
+          if(cnt!=0){
+            daylist$nbUser[cpt] <- daylist$nbUser[cpt]+1
+          }
+        }
+      }
+    }
+    plot(x=daylist$date, y=daylist$Score/daylist$nbUser, xlim=c(1,100),ylim=c(-15,0),
+         col='black', type='l',
+         main='Engagement following the number of days of testing', xlab='number of days', ylab='engagement')
+  })
+  
   output$userEngagement <- renderPlot({
     users<-unique(datalogs$User)
     daylist<-data.frame(date=c(1:200))
@@ -506,17 +524,17 @@ server <- function(input, output) {
          main='Engagement following the number of days of testing', xlab='number of days', ylab='engagement')
   })
   
-  output$userEngagementHour <- renderPlot({
+  "output$userEngagementHour <- renderPlot({
     users<-unique(datalogs$User)
     daylist<-data.frame(date=c(0:23))
-    daylist["Score"]<-0
-    daylist["nbUser"]<-0
+    daylist['Score']<-0
+    daylist['nbUser']<-0
     for(i in 1:length(users)){
       data <- subset(datalogs, User == users[i])
       cpt <- 0
       for(j in 0:23){
         subless <- subset(data, Hour == j)
-        cntless<-count_if("Auto skipped", subless$Type)
+        cntless<-count_if('Auto skipped', subless$Type)
         cnt<- nrow(subless)
           res <-cntless
           cpt <- cpt+1
@@ -529,7 +547,7 @@ server <- function(input, output) {
     plot(x=daylist$date, y=daylist$Score/daylist$nbUser, xlim=c(0,23),ylim=c(0,15),
          col='black', type='l',
          main='Engagement following the number of hours of the day of testing', xlab='Hour', ylab='engagement')
-  })
+  })"
   
   OverallEngagement <- function(){
     data = subset(datalogs, User == input$varUser)
