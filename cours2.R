@@ -199,6 +199,14 @@ ui <- dashboardPage(
                                         selected = "weeks") 
                                     ),
                                     box(plotOutput("prog"))
+                                ),
+                                fluidRow(
+                                  box(
+                                    h3("Cigarettes consumption in last seven days"),
+                                    plotOutput("lastSeven")
+                                  )
+                                  
+                                  
                                 )
                           ),
                           tabPanel("Week",
@@ -256,6 +264,22 @@ server <- function(input, output) {
     totalString = toString(as.integer(data))
   }
   
+  output$lastSeven <- renderPlot({
+    
+    sub <- subset(datalogsSmoked, User == input$varUser)
+    sub <- subset(sub, Date >= tail(sub,1)$Date - as.difftime(7, unit="days"))
+    
+    sub$Date<-as.POSIXct(sub$Date)
+    
+    smokedDays <- sub %>%
+      select(Type, Date) %>%
+      count(Date)
+    
+    barplot(smokedDays$n,names.arg = smokedDays$Date)
+    
+  
+  })
+  
   output$daysCigarettesConsumption <- renderPlot({
     
     sub <- subset(datalogsSmoked, User == input$varUser)
@@ -289,7 +313,7 @@ server <- function(input, output) {
   
   output$modesPlot <- renderPlot({
     
-    sub <- subset(datalogsSmoked, User == input$varUser)
+    sub <- subset(datalogsSmoked, User == "JosZ Girault")
     sub <- subset(sub, Type == input$modes)
     sub$Week <- strftime(sub$Time, format = "%W")
     
